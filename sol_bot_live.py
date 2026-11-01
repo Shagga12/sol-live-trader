@@ -3,77 +3,101 @@ import requests
 import time
 import pandas as pd
 from datetime import datetime
+import ccxt
 
-st.set_page_config(page_title="SOL Live Trader", page_icon="🚀", layout="wide")
+st.set_page_config(page_title="REAL BTC Trader 20%", page_icon="💰", layout="wide")
 
-st.title("🚀 SOL Live Trader - Real Time")
-st.markdown("Live Solana price tracking bot - Tortola BVI")
+st.title("💰 REAL AUTO TRADER - BTC/USDT - 20% Fee")
+st.markdown("**REAL Binance Trading + Profit Share**")
 
-# Sidebar
+st.sidebar.header("🔑 YOUR Binance (Real Money)")
+api_key = st.sidebar.text_input("Binance API Key", type="password")
+api_secret = st.sidebar.text_input("Binance Secret", type="password")
+investment_usdt = st.sidebar.number_input("Trade Amount USDT", value=20.0, min_value=5.0)
+st.sidebar.divider()
 st.sidebar.header("Settings")
-auto_refresh = st.sidebar.checkbox("Auto Refresh (30 sec)", value=True)
-buy_threshold = st.sidebar.number_input("Buy Alert Below $", value=140.0)
-sell_threshold = st.sidebar.number_input("Sell Alert Above $", value=200.0)
+auto_trade = st.sidebar.checkbox("ENABLE REAL AUTO TRADE", value=False)
+buy_below = st.sidebar.number_input("Auto BUY BTC Below $", value=67000.0)
+sell_above = st.sidebar.number_input("Auto SELL BTC Above $", value=70000.0)
 
-def get_sol_price():
-    try:
-        url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true"
-        r = requests.get(url, timeout=10)
-        data = r.json()
-        price = data['solana']['usd']
-        change = data['solana'].get('usd_24h_change', 0)
-        return price, change
-    except:
-        return None, None
+st.sidebar.warning("⚠️ Use Binance API with 'Spot Trading' ONLY. No Withdrawal permission!")
 
-def get_chart_data():
+def get_price():
     try:
-        url = "https://api.coingecko.com/api/v3/coins/solana/market_chart?vs_currency=usd&days=1"
-        r = requests.get(url, timeout=10)
-        prices = r.json()['prices']
-        df = pd.DataFrame(prices, columns=['timestamp', 'price'])
-        df['time'] = pd.to_datetime(df['timestamp'], unit='ms')
-        return df
+        r = requests.get("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", timeout=10)
+        return r.json()['bitcoin']['usd']
     except:
         return None
 
-col1, col2, col3 = st.columns(3)
+def trade_btc(action, amount_usdt):
+    if not api_key or not api_secret:
+        return "Add API keys first"
+    try:
+        exchange = ccxt.binance({
+            'apiKey': api_key,
+            'secret': api_secret,
+            'enableRateLimit': True,
+        })
+        # Get balance
+        balance = exchange.fetch_balance()
+        usdt_balance = balance['USDT']['free']
+        
+        if action == "BUY":
+            if usdt_balance < amount_usdt:
+                return f"Not enough USDT. You have ${usdt_balance:.2f}"
+            # Market buy BTC worth amount_usdt
+            order = exchange.create_market_buy_order('BTC/USDT', amount_usdt)
+            return f"BOUGHT! Order ID: {order['id']}"
+        elif action == "SELL":
+            btc_balance = balance['BTC']['free']
+            if btc_balance < 0.0001:
+                return f"Not enough BTC. You have {btc_balance}"
+            order = exchange.create_market_sell_order('BTC/USDT', btc_balance)
+            return f"SOLD! Order ID: {order['id']}"
+    except Exception as e:
+        return f"Trade Error: {str(e)}"
 
-price, change = get_sol_price()
+btc_price = get_price()
 
-if price:
-    with col1:
-        st.metric("SOL Price", f"${price:.2f}", f"{change:.2f}%")
-    with col2:
-        st.write(f"**Last Update:** {datetime.now().strftime('%H:%M:%S')}")
-        if price <= buy_threshold:
-            st.success(f"🟢 BUY SIGNAL! Price below ${buy_threshold}")
-        elif price >= sell_threshold:
-            st.error(f"🔴 SELL SIGNAL! Price above ${sell_threshold}")
+col1, col2 = st.columns(2)
+with col1:
+    st.metric("BTC/USDT LIVE", f"${btc_price:,.2f}" if btc_price else "Loading...")
+    st.write(f"Strategy: Buy < ${buy_below} | Sell > ${sell_above}")
+
+with col2:
+    st.subheader("Real Trading Panel")
+    if btc_price:
+        if btc_price <= buy_below:
+            st.success(f"🟢 BUY SIGNAL - BTC ${btc_price} < ${buy_below}")
+            if auto_trade:
+                result = trade_btc("BUY", investment_usdt)
+                st.write(result)
+                st.code(f"20% Fee owed on profit: Track in sheet")
+            else:
+                if st.button("BUY BTC NOW (Real)"):
+                    st.write(trade_btc("BUY", investment_usdt))
+        
+        elif btc_price >= sell_above:
+            st.error(f"🔴 SELL SIGNAL - BTC ${btc_price} > ${sell_above}")
+            if auto_trade:
+                result = trade_btc("SELL", investment_usdt)
+                st.write(result)
+            else:
+                if st.button("SELL BTC NOW (Real)"):
+                    st.write(trade_btc("SELL", investment_usdt))
         else:
-            st.info("⚪ HOLD - Waiting")
-    with col3:
-        st.write(f"**Status:** 🟢 LIVE")
+            st.info(f"HOLD - Waiting for signal. Current ${btc_price}")
 
-    st.subheader("24h Chart")
-    df = get_chart_data()
-    if df is not None:
-        st.line_chart(df.set_index('time')['price'])
-    else:
-        st.write("Chart loading on next refresh...")
+st.divider()
+st.subheader("For Your Users - 20% Model")
+st.write("1. User enters THEIR Binance API Key (you never hold money)")
+st.write("2. Bot trades on THEIR account")
+st.write("3. You track profit - they send you 20% to your USDT wallet")
+st.code("Your Fee Wallet (TRC20): PASTE_YOUR_USDT_ADDRESS_HERE")
+st.write("Future: Auto invoice via Telegram")
 
-    st.subheader("Live Log")
-    st.code(f"[{datetime.now()}] SOL: ${price} | Change: {change:.2f}% | Monitoring... BVI Time")
-    
-else:
-    st.warning("API busy - will retry in 30 sec...")
+st.caption("LIVE REAL TRADING - Test with $20 first! This uses real money. BVI: No guarantee of profit.")
 
-if auto_refresh:
+if auto_trade and btc_price:
     time.sleep(30)
     st.rerun()
-else:
-    if st.button("Refresh Now"):
-        st.rerun()
-
-st.markdown("---")
-st.caption("Fixed Time: 30 sec refresh to avoid API ban | CoinGecko")
