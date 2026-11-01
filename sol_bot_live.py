@@ -7,7 +7,6 @@ st.title("💰 REAL AUTO TRADER - BTC/USDT - 20% Fee - BYBIT")
 
 st.markdown("### REAL Bybit Trading + Profit Share")
 
-# Sidebar
 with st.sidebar:
     st.subheader("🔑 YOUR Bybit (Real Money)")
     api_key = st.text_input("Bybit API Key", type="password")
@@ -19,15 +18,15 @@ with st.sidebar:
     buy_below = st.number_input("Auto BUY BTC Below $", value=67000.0)
     sell_above = st.number_input("Auto SELL BTC Above $", value=70000.0)
 
-# LIVE PRICE
+# LIVE PRICE - FROM BINANCE (works everywhere) but TRADES on Bybit
 try:
-    exchange_public = ccxt.bybit()
+    exchange_public = ccxt.binance()
     ticker = exchange_public.fetch_ticker('BTC/USDT')
     btc_price = ticker['last']
-    st.metric("BTC/USDT LIVE (Bybit)", f"${btc_price:,.2f}")
+    st.metric("BTC/USDT LIVE", f"${btc_price:,.2f}")
+    st.caption("Price from Binance (public) - Trades execute on YOUR Bybit")
     st.write(f"Strategy: Buy < {buy_below} | Sell > {sell_above}")
 
-    # Signal
     if btc_price < buy_below:
         st.success(f"🟢 BUY SIGNAL - BTC {btc_price} < {buy_below}")
         signal = "BUY"
@@ -38,7 +37,6 @@ try:
         st.warning(f"🟡 HOLD - BTC {btc_price} between levels")
         signal = "HOLD"
 
-    # Real Trading Panel
     st.subheader("Real Trading Panel - BYBIT")
     if st.button(f"{signal} BTC NOW (Real - Bybit)"):
         if not api_key or not api_secret:
@@ -59,7 +57,6 @@ try:
                 if signal == "BUY" and usdt >= trade_amount:
                     order = exchange.create_market_buy_order('BTC/USDT', trade_amount / btc_price)
                     st.success(f"BOUGHT REAL BTC on Bybit! Order: {order['id']}")
-                    st.info(f"20% Fee = {trade_amount*0.2*0.05} USDT (5% profit share example) owed to OWNER")
                 elif signal == "SELL":
                     btc_bal = balance['BTC']['free']
                     if btc_bal > 0:
@@ -71,10 +68,17 @@ try:
                     st.warning("Not enough USDT or no signal")
 
             except Exception as e:
-                st.error(f"Bybit Error: {e}")
+                st.error(f"Bybit Trade Error (check your keys): {e}")
 
 except Exception as e:
     st.error(f"Price Error: {e}")
+    st.info("Trying backup price source...")
+    try:
+        exchange_public = ccxt.kraken()
+        ticker = exchange_public.fetch_ticker('BTC/USDT')
+        st.metric("BTC/USDT LIVE (Kraken backup)", f"${ticker['last']:,.2f}")
+    except:
+        pass
 
 st.divider()
 st.subheader("For Your Users - 20% Model")
