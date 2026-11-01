@@ -1,4 +1,3 @@
-
 import streamlit as st
 import requests
 import time
@@ -8,17 +7,16 @@ from datetime import datetime
 st.set_page_config(page_title="SOL Live Trader", page_icon="🚀", layout="wide")
 
 st.title("🚀 SOL Live Trader - Real Time")
-st.markdown("Live Solana price tracking bot")
+st.markdown("Live Solana price tracking bot - Tortola BVI")
 
 # Sidebar
 st.sidebar.header("Settings")
-auto_refresh = st.sidebar.checkbox("Auto Refresh (5 sec)", value=True)
+auto_refresh = st.sidebar.checkbox("Auto Refresh (30 sec)", value=True)
 buy_threshold = st.sidebar.number_input("Buy Alert Below $", value=140.0)
 sell_threshold = st.sidebar.number_input("Sell Alert Above $", value=200.0)
 
 def get_sol_price():
     try:
-        # CoinGecko API - free
         url = "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd&include_24hr_change=true"
         r = requests.get(url, timeout=10)
         data = r.json()
@@ -39,7 +37,6 @@ def get_chart_data():
     except:
         return None
 
-# Main display
 col1, col2, col3 = st.columns(3)
 
 price, change = get_sol_price()
@@ -54,31 +51,29 @@ if price:
         elif price >= sell_threshold:
             st.error(f"🔴 SELL SIGNAL! Price above ${sell_threshold}")
         else:
-            st.info("⚪ HOLD - Waiting for signal")
+            st.info("⚪ HOLD - Waiting")
     with col3:
         st.write(f"**Status:** 🟢 LIVE")
 
-    # Chart
     st.subheader("24h Chart")
     df = get_chart_data()
     if df is not None:
         st.line_chart(df.set_index('time')['price'])
     else:
-        st.write("Loading chart...")
+        st.write("Chart loading on next refresh...")
 
-    # Trade log
     st.subheader("Live Log")
-    st.code(f"[{datetime.now()}] SOL: ${price} | Change: {change:.2f}% | Bot: Monitoring...")
+    st.code(f"[{datetime.now()}] SOL: ${price} | Change: {change:.2f}% | Monitoring... BVI Time")
     
 else:
-    st.error("Failed to fetch price. API limit - wait 30 sec and refresh.")
+    st.warning("API busy - will retry in 30 sec...")
 
 if auto_refresh:
-    time.sleep(5)
+    time.sleep(30)
     st.rerun()
 else:
     if st.button("Refresh Now"):
         st.rerun()
 
 st.markdown("---")
-st.caption("Powered by CoinGecko API | Auto refreshes every 5 sec")
+st.caption("Fixed Time: 30 sec refresh to avoid API ban | CoinGecko")
